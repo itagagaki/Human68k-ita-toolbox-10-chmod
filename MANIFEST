@@ -1,0 +1,8 @@
+MANIFEST       このファイル
+README         まず最初にお読み下さい
+NOTICE         版権と許諾についての告示書
+DIRECTORY      ITA製品リスト
+HUPAIR         HUPAIRについてのインフォメーション
+CHANGES        chmodのモデルチェンジの履歴
+chmod.1        chmodのマニュアル
+chmod.x        chmod実行ファイル

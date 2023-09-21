@@ -2,16 +2,18 @@
 *
 * Itagaki Fumihiko 28-Aug-92  Create.
 * 1.0
-* Itagaki Fumihiko 06-Nov-92  strip_excessive_slashesのバグfixに伴う改版。
+* Itagaki Fumihiko 06-Nov-92  strip_excessive_slashesのバグfixに伴う改版．
 * 1.2
 * Itagaki Fumihiko 20-Jan-93  GETPDB -> lea $10(a0),a0
-* Itagaki Fumihiko 20-Jan-93  Usage: メッセージを修正
-* Itagaki Fumihiko 22-Jan-93  スタックを拡張
+* Itagaki Fumihiko 20-Jan-93  Usage: メッセージを修正．
+* Itagaki Fumihiko 22-Jan-93  スタックを拡張．
 * Itagaki Fumihiko 26-Jan-93  -f オプションが指定されている場合には，ファイル引数が与えられ
 *                             ていなくても正常終了するようにした．
 * 1.3
+* Itagaki Fumihiko 25-Aug-93  8進数値表現を許した．
+* 1.4
 *
-* Usage: chmod [ -cdfvR ] {{+-=}{ashrwx}...[,]}... <file> ...
+* Usage: chmod [ -cdfvR ] mode file ...
 
 .include doscall.h
 .include error.h
@@ -137,97 +139,145 @@ decode_opt_done:
 	*
 	*  モード引数を解釈する
 	*
+		move.b	(a0),d0
+		cmp.b	#'0',d0
+		blo	decode_symbolic_mode
+
+		cmp.b	#'7',d0
+		bhi	decode_symbolic_mode
+
+	*  numeric mode
+
+		moveq	#0,d1
+scan_numeric_mode_loop:
+		move.b	(a0)+,d0
+		beq	scan_numeric_mode_done
+
+		sub.b	#'0',d0
+		blo	bad_arg
+
+		cmp.b	#7,d0
+		bhi	bad_arg
+
+		lsl.w	#3,d1
+		or.b	d0,d1
+		bra	scan_numeric_mode_loop
+
+scan_numeric_mode_done:
+		move.w	d1,d0
+		lsr.w	#3,d0
+		or.w	d0,d1
+		lsr.w	#3,d0
+		or.w	d0,d1
+		moveq	#0,d0
+		btst	#1,d1
+		beq	decode_numeric_mode_w_ok
+
+		bset	#MODEBIT_RDO,d0
+decode_numeric_mode_w_ok:
+		btst	#0,d1
+		beq	decode_numeric_mode_x_ok
+
+		bset	#MODEBIT_EXE,d0
+decode_numeric_mode_x_ok:
+		move.b	d0,mode_plus
+		move.b	#(MODEVAL_VOL|MODEVAL_DIR|MODEVAL_LNK|MODEVAL_ARC|MODEVAL_SYS|MODEVAL_HID),mode_mask
+		bra	decode_mode_done
+
+	*  symbolic mode
+
+decode_symbolic_mode:
 		move.b	#$ff,mode_mask
 		clr.b	mode_plus
-decode_mode_loop1:
+decode_symbolic_mode_loop1:
 		move.b	(a0)+,d0
 		beq	decode_mode_done
 
 		cmp.b	#',',d0
-		beq	decode_mode_loop1
+		beq	decode_symbolic_mode_loop1
 
 		subq.l	#1,a0
-decode_mode_loop2:
+decode_symbolic_mode_loop2:
 		move.b	(a0)+,d0
 		cmp.b	#'u',d0
-		beq	decode_mode_loop2
+		beq	decode_symbolic_mode_loop2
 
 		cmp.b	#'g',d0
-		beq	decode_mode_loop2
+		beq	decode_symbolic_mode_loop2
 
 		cmp.b	#'o',d0
-		beq	decode_mode_loop2
+		beq	decode_symbolic_mode_loop2
 
 		cmp.b	#'a',d0
-		beq	decode_mode_loop2
-decode_mode_loop3:
+		beq	decode_symbolic_mode_loop2
+decode_symbolic_mode_loop3:
 		cmp.b	#'+',d0
-		beq	decode_mode_plus
+		beq	decode_symbolic_mode_plus
 
 		cmp.b	#'-',d0
-		beq	decode_mode_minus
+		beq	decode_symbolic_mode_minus
 
 		cmp.b	#'=',d0
-		beq	decode_mode_equal
+		beq	decode_symbolic_mode_equal
 bad_arg:
 		movea.l	a1,a0
 		lea	msg_bad_arg(pc),a2
 		bsr	werror_myname_word_colon_msg
 		bra	usage
 
-decode_mode_equal:
+decode_symbolic_mode_equal:
 		move.b	#(MODEVAL_VOL|MODEVAL_DIR|MODEVAL_LNK),mode_mask
 		clr.b	mode_plus
-decode_mode_plus:
-		bsr	decode_mode_sub
+decode_symbolic_mode_plus:
+		bsr	decode_symbolic_mode_sub
 		or.b	d1,mode_plus
-		bra	decode_mode_continue
+		bra	decode_symbolic_mode_continue
 
-decode_mode_minus:
-		bsr	decode_mode_sub
+decode_symbolic_mode_minus:
+		bsr	decode_symbolic_mode_sub
 		not.b	d1
 		and.b	d1,mode_mask
 		and.b	d1,mode_plus
-decode_mode_continue:
+decode_symbolic_mode_continue:
 		tst.b	d0
 		beq	decode_mode_done
 
 		cmp.b	#',',d0
-		beq	decode_mode_loop1
-		bra	decode_mode_loop3
+		beq	decode_symbolic_mode_loop1
+		bra	decode_symbolic_mode_loop3
 
-decode_mode_sub:
+decode_symbolic_mode_sub:
 		moveq	#0,d1
-decode_mode_sub_loop:
+decode_symbolic_mode_sub_loop:
 		move.b	(a0)+,d0
 		moveq	#MODEBIT_ARC,d2
 		cmp.b	#'a',d0
-		beq	decode_mode_sub_set
+		beq	decode_symbolic_mode_sub_set
 
 		moveq	#MODEBIT_SYS,d2
 		cmp.b	#'s',d0
-		beq	decode_mode_sub_set
+		beq	decode_symbolic_mode_sub_set
 
 		moveq	#MODEBIT_HID,d2
 		cmp.b	#'h',d0
-		beq	decode_mode_sub_set
+		beq	decode_symbolic_mode_sub_set
 
 		cmp.b	#'r',d0
-		beq	decode_mode_sub_loop
+		beq	decode_symbolic_mode_sub_loop
 
 		moveq	#MODEBIT_RDO,d2
 		cmp.b	#'w',d0
-		beq	decode_mode_sub_set
+		beq	decode_symbolic_mode_sub_set
 
 		moveq	#MODEBIT_EXE,d2
 		cmp.b	#'x',d0
-		beq	decode_mode_sub_set
-decode_mode_sub_done:
+		beq	decode_symbolic_mode_sub_set
+decode_symbolic_mode_sub_done:
 		rts
 
-decode_mode_sub_set:
+decode_symbolic_mode_sub_set:
 		bset	d2,d1
-		bra	decode_mode_sub_loop
+		bra	decode_symbolic_mode_sub_loop
 
 decode_mode_done:
 		moveq	#0,d6				*  D6.W : エラー・コード
@@ -596,7 +646,7 @@ perror_1:
 .data
 
 	dc.b	0
-	dc.b	'## chmod 1.3 ##  Copyright(C)1992-93 by Itagaki Fumihiko',0
+	dc.b	'## chmod 1.4 ##  Copyright(C)1992-93 by Itagaki Fumihiko',0
 
 .even
 perror_table:
@@ -648,7 +698,7 @@ msg_retained:			dc.b	' のままに維持されました',CR,LF,0
 msg_changed:			dc.b	' に変更されました',CR,LF,0
 msg_usage:			dc.b	CR,LF
 				dc.b	'使用法:  chmod [-cdfvR] <属性変更式> <ファイル> ...',CR,LF,CR,LF
-				dc.b	'         属性変更式: {[ugoa]{{+-=}[ashrwx]}...}[,...]'
+				dc.b	'         属性変更式: {[ugoa]{{+-=}[ashrwx]}...}[,...] または 8進数値表現'
 msg_newline:			dc.b	CR,LF,0
 dos_wildcard_all:		dc.b	'*.*',0
 *****************************************************************
