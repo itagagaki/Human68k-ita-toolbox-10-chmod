@@ -168,7 +168,7 @@ bad_arg:
 		bra	usage
 
 decode_mode_equal:
-		move.b	#(MODEBIT_VOL|MODEBIT_DIR|MODEBIT_LNK),mode_mask
+		move.b	#(MODEVAL_VOL|MODEVAL_DIR|MODEVAL_LNK),mode_mask
 		clr.b	mode_plus
 decode_mode_plus:
 		bsr	decode_mode_sub
@@ -583,7 +583,7 @@ perror_1:
 .data
 
 	dc.b	0
-	dc.b	'## chmod 1.0 ##  Copyright(C)1992 by Itagaki Fumihiko',0
+	dc.b	'## chmod 1.1 ##  Copyright(C)1992 by Itagaki Fumihiko',0
 
 .even
 perror_table:
