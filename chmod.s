@@ -4,6 +4,12 @@
 * 1.0
 * Itagaki Fumihiko 06-Nov-92  strip_excessive_slashesのバグfixに伴う改版。
 * 1.2
+* Itagaki Fumihiko 20-Jan-93  GETPDB -> lea $10(a0),a0
+* Itagaki Fumihiko 20-Jan-93  Usage: メッセージを修正
+* Itagaki Fumihiko 22-Jan-93  スタックを拡張
+* Itagaki Fumihiko 26-Jan-93  -f オプションが指定されている場合には，ファイル引数が与えられ
+*                             ていなくても正常終了するようにした．
+* 1.3
 *
 * Usage: chmod [ -cdfvR ] {{+-=}{ashrwx}...[,]}... <file> ...
 
@@ -56,8 +62,7 @@ start:
 		dc.b	'#HUPAIR',0
 start1:
 		lea	stack_bottom,a7			*  A7 := スタックの底
-		DOS	_GETPDB
-		movea.l	d0,a0				*  A0 : PDBアドレス
+		lea	$10(a0),a0			*  A0 : PDBアドレス
 		move.l	a7,d0
 		sub.l	a0,d0
 		move.l	d0,-(a7)
@@ -89,7 +94,7 @@ start1:
 decode_opt_loop1:
 		movea.l	a0,a1
 		tst.l	d7
-		beq	too_few_args
+		beq	decode_opt_done
 
 		cmpi.b	#'-',(a0)+
 		bne	decode_opt_done
@@ -128,7 +133,7 @@ decode_opt_break:
 decode_opt_done:
 		movea.l	a1,a0
 		subq.l	#1,d7
-		bls	too_few_args
+		blo	too_few_args
 	*
 	*  モード引数を解釈する
 	*
@@ -226,6 +231,8 @@ decode_mode_sub_set:
 
 decode_mode_done:
 		moveq	#0,d6				*  D6.W : エラー・コード
+		tst.l	d7
+		beq	no_filearg
 chmod_loop:
 		movea.l	a0,a1
 		bsr	strfor1
@@ -240,6 +247,9 @@ exit_program:
 		move.w	d6,-(a7)
 		DOS	_EXIT2
 
+no_filearg:
+		btst	#FLAG_f,d5
+		bne	exit_program
 too_few_args:
 		lea	msg_too_few_args(pc),a0
 		bsr	werror_myname_and_msg
@@ -586,7 +596,7 @@ perror_1:
 .data
 
 	dc.b	0
-	dc.b	'## chmod 1.2 ##  Copyright(C)1992 by Itagaki Fumihiko',0
+	dc.b	'## chmod 1.3 ##  Copyright(C)1992-93 by Itagaki Fumihiko',0
 
 .even
 perror_table:
@@ -637,7 +647,8 @@ msg_no_mode_ha:			dc.b	' の属性は ',0
 msg_retained:			dc.b	' のままに維持されました',CR,LF,0
 msg_changed:			dc.b	' に変更されました',CR,LF,0
 msg_usage:			dc.b	CR,LF
-				dc.b	'使用法:  chmod [-cdfvR] {[ugoa]{{+-=}[ashrwx]}...}[,...] <ファイル> ...'
+				dc.b	'使用法:  chmod [-cdfvR] <属性変更式> <ファイル> ...',CR,LF,CR,LF
+				dc.b	'         属性変更式: {[ugoa]{{+-=}[ashrwx]}...}[,...]'
 msg_newline:			dc.b	CR,LF,0
 dos_wildcard_all:		dc.b	'*.*',0
 *****************************************************************
@@ -650,12 +661,9 @@ nameckbuf:		ds.b	91
 mode_mask:		ds.b	1
 mode_plus:		ds.b	1
 .even
-			ds.b	4096+chmod_recurse_stacksize*(MAXRECURSE+1)
-			*  必要なスタック量は，再帰の度に消費されるスタック量と
-			*  その回数とで決まる．
-			*  その他にマージンを含めたミニマム量として 4096バイトを確保しておく．
-			*  このプログラムでは 4096バイトあれば充分である．
-			*  （lndrv が 1.5KB程喰う可能性がある）
+	ds.b	16384+chmod_recurse_stacksize*(MAXRECURSE+1)
+	*  必要なスタック量は，再帰の度に消費されるスタック量とその回数とで決まる．
+	*  この他にマージンとスーパーバイザ・スタックとを兼ねて16KB確保しておく．
 .even
 stack_bottom:
 *****************************************************************
