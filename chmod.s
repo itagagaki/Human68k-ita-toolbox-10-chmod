@@ -1,6 +1,9 @@
 * chmod - change file mode
 *
 * Itagaki Fumihiko 28-Aug-92  Create.
+* 1.0
+* Itagaki Fumihiko 06-Nov-92  strip_excessive_slashesÇÃÉoÉOfixÇ…î∫Ç§â¸î≈ÅB
+* 1.2
 *
 * Usage: chmod [ -cdfvR ] {{+-=}{ashrwx}...[,]}... <file> ...
 
@@ -583,7 +586,7 @@ perror_1:
 .data
 
 	dc.b	0
-	dc.b	'## chmod 1.1 ##  Copyright(C)1992 by Itagaki Fumihiko',0
+	dc.b	'## chmod 1.2 ##  Copyright(C)1992 by Itagaki Fumihiko',0
 
 .even
 perror_table:
